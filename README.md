@@ -93,7 +93,7 @@ Edit `.env` file:
 ```bash
 NODE_ENV=development
 PORT=3006
-COMFYUI_URL=http://192.168.0.101:3001  # Your ComfyUI server
+COMFYUI_URL=http://127.0.0.1:3001  # Your ComfyUI server
 LOG_LEVEL=info
 RATE_LIMIT_MAX_REQUESTS=100
 ```
@@ -266,7 +266,7 @@ ws://localhost:3006/comfyui/ws  # WebSocket proxy
 
 ## 🗺️ Roadmap
 
-### ✅ **V4.1 - Current (Production Ready)**
+### ✅ **V1 - Current (Production Ready)**
 - [x] Modular architecture
 - [x] Enterprise security layer
 - [x] Structured logging system
@@ -336,7 +336,7 @@ ws://localhost:3006/comfyui/ws  # WebSocket proxy
 
 ---
 
-## 🔮 Future File Structure (V5.0+)
+## 🔮 Future File Structure (V2.0+)
 
 ### **Proposed Architecture**
 ```
@@ -547,7 +547,7 @@ in the Software without restriction...
 ### **Common Issues**
 
 **Can't connect to ComfyUI?**
-- Check ComfyUI is running: `http://192.168.0.101:3001/system_stats`
+- Check ComfyUI is running: `http://127.0.0.1:3001/system_stats` Change for your system
 - Update `.env` with correct URL
 - Check firewall settings
 
@@ -569,9 +569,9 @@ in the Software without restriction...
 ![GitHub pull requests](https://img.shields.io/github/issues-pr/AndrewCorbett-cyber/AWDigitalworld-AI-Hub)
 ![GitHub stars](https://img.shields.io/github/stars/AndrewCorbett-cyber/AWDigitalworld-AI-Hub?style=social)
 
-**Current Version:** 4.1.0  
+**Current Version:** 1.1.0  
 **Status:** Production Ready ✅  
-**Last Updated:** December 2024  
+**Last Updated:** December 2025  
 **Maintained:** Actively
 
 ---
