@@ -7,6 +7,9 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Status](https://img.shields.io/badge/status-production--ready-success.svg)
 
+# Or with alt text:
+![AWDigitalworld AI Hub Interface](assets/images/screenshot.png)
+
 **Professional AI Image & Video Generation Interface with ComfyUI Integration**
 
 [Features](#-features) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Roadmap](#-roadmap) • [Contributing](#-contributing)
