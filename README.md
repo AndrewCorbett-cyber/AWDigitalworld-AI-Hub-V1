@@ -112,7 +112,7 @@ http://localhost:3006
 
 ---
 
-## 🏗️ Current Architecture (V4.1)
+## 🏗️ Current Architecture (V1.1)
 
 ### **File Structure**
 ```
@@ -198,7 +198,7 @@ GET  /api/health/live         # Kubernetes liveness probe
 ```json
 {
   "status": "ok",
-  "version": "4.1.0",
+  "version": "1.1.0",
   "uptime": { "seconds": 12345 },
   "connections": { "http": 5, "ws": 2 }
 }
@@ -253,7 +253,7 @@ ws://localhost:3006/comfyui/ws  # WebSocket proxy
 
 ## 🎛️ Performance Benchmarks
 
-| Metric | Before (V4.0) | After (V4.1) | Improvement |
+| Metric | Before (V1.0) | After (V1.1) | Improvement |
 |--------|---------------|--------------|-------------|
 | **System Stats Latency** | 150ms | 5ms (cached) | **97% faster** |
 | **Memory Usage** | Variable | Stable | **Optimized** |
@@ -277,7 +277,7 @@ ws://localhost:3006/comfyui/ws  # WebSocket proxy
 - [x] System monitoring with caching
 - [x] Comprehensive documentation
 
-### 🚧 **V4.2 - Planned (Q1 2025)**
+### 🚧 **V2.0 - Planned (Q1 2026)**
 - [ ] **Frontend Separation**
   - Extract React to separate files
   - Build system (Vite or Webpack)
@@ -296,7 +296,7 @@ ws://localhost:3006/comfyui/ws  # WebSocket proxy
   - Performance tracking
   - Request tracing
 
-### 📅 **V5.0 - Future (Q2 2025)**
+### 📅 **V3.0 - Future (Q2 2026)**
 - [ ] **Database Integration**
   - PostgreSQL/SQLite support
   - User management
@@ -315,7 +315,7 @@ ws://localhost:3006/comfyui/ws  # WebSocket proxy
   - Advanced preset system
   - Plugin architecture
 
-### 🔮 **V6.0 - Vision (Q3 2025)**
+### 🔮 **V4.0 - Vision (Q3 2026)**
 - [ ] **Microservices Architecture**
   - Separate frontend service
   - Separate API service
@@ -517,7 +517,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ```
 MIT License
 
-Copyright (c) 2024 Andrew Corbett - AWDigitalworld
+Copyright (c) 2025 Andrew Corbett - AWDigitalworld
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -542,7 +542,7 @@ in the Software without restriction...
 - 📖 **Documentation:** Check the [docs/](docs/) folder
 - 🐛 **Bug Reports:** [Open an Issue](https://github.com/AndrewCorbett-cyber/AWDigitalworld-AI-Hub/issues)
 - 💬 **Discussions:** [GitHub Discussions](https://github.com/AndrewCorbett-cyber/AWDigitalworld-AI-Hub/discussions)
-- 📧 **Email:** andrew@awdigitalworld.com
+- 📧 **Email:** TBC
 
 ### **Common Issues**
 
