@@ -1,0 +1,28 @@
+const express = require('express');
+const router = express.Router();
+const { config } = require('../config/config');
+const { activeConnections } = require('../utils/shutdown');
+
+const startTime = Date.now();
+
+router.get('/', (req, res) => {
+    const uptime = Date.now() - startTime;
+    
+    res.json({
+        status: 'ok',
+        version: config.server.version,
+        server: 'AWDigitalworld AI Hub Pro',
+        environment: config.server.environment,
+        uptime: {
+            ms: uptime,
+            seconds: Math.floor(uptime / 1000)
+        },
+        timestamp: new Date().toISOString(),
+        connections: {
+            http: activeConnections.http.size,
+            ws: activeConnections.ws.size
+        }
+    });
+});
+
+module.exports = router;
