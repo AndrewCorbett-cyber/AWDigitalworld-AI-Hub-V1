@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Hub Diagnostic Tool</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1e1e1e;
+            color: #e0e0e0;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 { color: #667eea; }
+        h2 { color: #818cf8; margin-top: 30px; }
+        .test { 
+            background: #2a2a2a;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #3a3a3a;
+        }
+        .test.pass { border-left-color: #10b981; }
+        .test.fail { border-left-color: #ef4444; }
+        .test.warn { border-left-color: #f59e0b; }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #764ba2; }
+        .status { 
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.pass { background: #10b981; }
+        .status.fail { background: #ef4444; }
+        .status.warn { background: #f59e0b; }
+        pre {
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .test-name { font-weight: bold; color: #a78bfa; }
+    </style>
+</head>
+<body>
+    <h1>🔧 AI Hub Pro V4.0.4 Diagnostic Tool</h1>
+    <p>Run these tests to diagnose issues with your setup.</p>
+    
+    <button onclick="runAllTests()">▶️ Run All Tests</button>
+    <button onclick="location.reload()">🔄 Refresh</button>
+    
+    <div id="results"></div>
+    
+    <script>
+        // Load configuration from localStorage or use defaults
+        const loadConfig = () => {
+            try {
+                const savedConfig = localStorage.getItem('serverConfig');
+                if (savedConfig) {
+                    return JSON.parse(savedConfig);
+                }
+            } catch (e) {
+                console.error('Failed to load config:', e);
+            }
+            return {
+                comfyuiUrl: 'http://192.168.0.101:3001',
+                backendUrl: 'http://192.168.0.101:5000'
+            };
+        };
+
+        const config = loadConfig();
+        const COMFYUI_URL = "/comfyui";
+        const BACKEND_URL = "/api";
+        
+        async function runAllTests() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h2>Running Tests...</h2>';
+            
+            const tests = [
+                testComfyUIConnection,
+                testBackendConnection,
+                testGGUFModels,
+                testCLIPModels,
+                testSystemStats,
+                testGPUStats,
+                testCORS,
+                testBrowserStorage
+            ];
+            
+            let html = '';
+            for (const test of tests) {
+                html += await test();
+            }
+            results.innerHTML = html;
+        }
+        
+        async function testComfyUIConnection() {
+            const name = '1. ComfyUI Server Connection';
+            try {
+                const response = await fetch(`${COMFYUI_URL}/system_stats`, {
+                    signal: AbortSignal.timeout(5000)
+                });
+                
+                if (response.ok) {
+                    return makeTest(name, 'pass', `✓ Connected to ${COMFYUI_URL}`, 
+                        `Status: ${response.status}`);
+                } else {
+                    return makeTest(name, 'fail', `✗ HTTP ${response.status}`,
+                        `Server responded but returned error`);
+                }
+            } catch (error) {
+                return makeTest(name, 'fail', `✗ ${error.message}`,
+                    `Cannot reach ComfyUI at ${COMFYUI_URL}\nCheck if ComfyUI is running`);
+            }
+        }
+        
+        async function testBackendConnection() {
+            const name = '2. Backend API Connection';
+            try {
+                const response = await fetch(`/api/health`, {
+                    signal: AbortSignal.timeout(5000)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    return makeTest(name, 'pass', `✓ Backend healthy`, 
+                        JSON.stringify(data, null, 2));
+                } else {
+                    return makeTest(name, 'fail', `✗ HTTP ${response.status}`,
+                        `Backend at ${BACKEND_URL} returned error`);
+                }
+            } catch (error) {
+                return makeTest(name, 'warn', `⚠ ${error.message}`,
+                    `Backend not running (stats will show N/A)\nTo fix: python3 backend_api.py`);
+            }
+        }
+        
+        async function testGGUFModels() {
+            const name = '3. GGUF Model Loading';
+            try {
+                const response = await fetch(`${COMFYUI_URL}/object_info`);
+                const data = await response.json();
+                
+                const unetLoader = data.UNETLoader;
+                if (!unetLoader) {
+                    return makeTest(name, 'fail', '✗ UNETLoader not found',
+                        'ComfyUI-GGUF extension not installed\nInstall: cd custom_nodes && git clone https://github.com/city96/ComfyUI-GGUF.git');
+                }
+                
+                const models = unetLoader.input?.required?.unet_name?.[0] || [];
+                const ggufModels = models.filter(m => m.endsWith('.gguf'));
+                
+                if (ggufModels.length > 0) {
+                    return makeTest(name, 'pass', 
+                        `✓ Found ${ggufModels.length} GGUF model(s)`,
+                        ggufModels.join('\n'));
+                } else {
+                    return makeTest(name, 'warn',
+                        `⚠ No .gguf files found`,
+                        `Found ${models.length} total models, but none are .gguf\nPlace .gguf files in ComfyUI/models/checkpoints/`);
+                }
+            } catch (error) {
+                return makeTest(name, 'fail', `✗ ${error.message}`,
+                    'Cannot check GGUF models');
+            }
+        }
+        
+        async function testCLIPModels() {
+            const name = '4. CLIP Model Loading';
+            try {
+                const response = await fetch(`${COMFYUI_URL}/object_info`);
+                const data = await response.json();
+                
+                const clipLoader = data.CLIPLoader;
+                if (!clipLoader) {
+                    return makeTest(name, 'warn', '⚠ CLIPLoader not found',
+                        'CLIP models may not load (non-critical)');
+                }
+                
+                const models = clipLoader.input?.required?.clip_name?.[0] || [];
+                
+                if (models.length > 0) {
+                    return makeTest(name, 'pass',
+                        `✓ Found ${models.length} CLIP model(s)`,
+                        models.slice(0, 10).join('\n') + (models.length > 10 ? '\n...' : ''));
+                } else {
+                    return makeTest(name, 'warn',
+                        `⚠ No CLIP models found`,
+                        `Place CLIP models in ComfyUI/models/clip/`);
+                }
+            } catch (error) {
+                return makeTest(name, 'fail', `✗ ${error.message}`,
+                    'Cannot check CLIP models');
+            }
+        }
+        
+        async function testSystemStats() {
+            const name = '5. System Stats API';
+            try {
+                const response = await fetch(`/api/system-stats`, {
+                    signal: AbortSignal.timeout(3000)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const summary = `CPU: ${data.cpu?.percent}%, RAM: ${data.ram?.percent}%`;
+                    return makeTest(name, 'pass',
+                        `✓ Stats working: ${summary}`,
+                        JSON.stringify(data, null, 2).substring(0, 500));
+                } else {
+                    return makeTest(name, 'fail', `✗ HTTP ${response.status}`,
+                        'Stats API error');
+                }
+            } catch (error) {
+                return makeTest(name, 'warn', `⚠ ${error.message}`,
+                    'Stats API not available (stats will show N/A)');
+            }
+        }
+        
+        async function testGPUStats() {
+            const name = '6. GPU Stats (nvidia-smi)';
+            try {
+                const response = await fetch(`/api/system-stats`, {
+                    signal: AbortSignal.timeout(3000)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.gpus && data.gpus.length > 0) {
+                        const gpu = data.gpus[0];
+                        const summary = `${gpu.name}, ${gpu.temperature}°C, ${gpu.utilization}% usage`;
+                        return makeTest(name, 'pass',
+                            `✓ GPU detected: ${summary}`,
+                            JSON.stringify(gpu, null, 2));
+                    } else {
+                        return makeTest(name, 'warn', '⚠ No GPU data',
+                            'nvidia-smi may not be working');
+                    }
+                } else {
+                    return makeTest(name, 'warn', `⚠ HTTP ${response.status}`,
+                        'GPU stats endpoint error');
+                }
+            } catch (error) {
+                return makeTest(name, 'warn', `⚠ ${error.message}`,
+                    'GPU stats not available');
+            }
+        }
+        
+        async function testCORS() {
+            const name = '7. CORS Configuration';
+            try {
+                const response = await fetch(`/api/health`, {
+                    method: 'OPTIONS'
+                });
+                
+                const corsHeader = response.headers.get('Access-Control-Allow-Origin');
+                if (corsHeader) {
+                    return makeTest(name, 'pass',
+                        `✓ CORS enabled: ${corsHeader}`,
+                        'Backend allows cross-origin requests');
+                } else {
+                    return makeTest(name, 'warn',
+                        '⚠ CORS headers not found',
+                        'May cause issues. Ensure flask-cors is installed');
+                }
+            } catch (error) {
+                return makeTest(name, 'warn', `⚠ ${error.message}`,
+                    'Cannot test CORS');
+            }
+        }
+        
+        async function testBrowserStorage() {
+            const name = '8. Browser Storage';
+            try {
+                localStorage.setItem('test', 'value');
+                const value = localStorage.getItem('test');
+                localStorage.removeItem('test');
+                
+                if (value === 'value') {
+                    const keys = Object.keys(localStorage);
+                    return makeTest(name, 'pass',
+                        `✓ localStorage working`,
+                        `Found ${keys.length} stored items: ${keys.join(', ')}`);
+                } else {
+                    return makeTest(name, 'fail',
+                        '✗ localStorage broken',
+                        'Settings may not persist');
+                }
+            } catch (error) {
+                return makeTest(name, 'fail', `✗ ${error.message}`,
+                    'localStorage not available');
+            }
+        }
+        
+        function makeTest(name, status, message, details) {
+            const statusClass = status;
+            const statusText = status === 'pass' ? 'PASS' : status === 'fail' ? 'FAIL' : 'WARN';
+            
+            return `
+                <div class="test ${statusClass}">
+                    <div class="test-name">${name} <span class="status ${statusClass}">${statusText}</span></div>
+                    <div>${message}</div>
+                    ${details ? `<pre>${details}</pre>` : ''}
+                </div>
+            `;
+        }
+        
+        // Auto-run on load
+        window.addEventListener('load', runAllTests);
+    </script>
+</body>
+</html>
