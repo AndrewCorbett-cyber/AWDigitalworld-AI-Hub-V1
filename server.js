@@ -1,127 +1,78 @@
 const express = require('express');
 const path = require('path');
-const { createProxyMiddleware } = require('http-proxy-middleware');
 const cors = require('cors');
 const expressWs = require('express-ws');
 const compression = require('compression');
-const WebSocket = require('ws');
+
 const { config } = require('./config/config');
+const { createLogger } = require('./utils/logger');
+const {
+    createRateLimiter,
+    createApiRateLimiter,
+    securityHeaders,
+    sanitizeInput
+} = require('./middleware/security');
 
+const configRoutes = require('./routes/config');
+const systemRoutes = require('./routes/system');
+const healthRoutes = require('./routes/health');
+const proxyRoutes = require('./routes/proxy');
+
+const logger = createLogger(config.logging);
 const app = express();
-const PORT = config.server.port;
-const COMFYUI_URL = config.comfyui.url;
-const COMFYUI_WS_URL = config.comfyui.wsUrl;
-
 expressWs(app);
 
 // Middleware
-app.use(compression());
+app.use(securityHeaders());
 app.use(cors());
-app.use(express.json());
-app.use(express.static('public'));
+app.use(compression());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(logger.requestLogger());
+app.use(sanitizeInput);
+app.use(createRateLimiter(config.security.rateLimit));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Logging
-app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-    next();
-});
+// Routes
+app.use('/api/health', healthRoutes);
+app.use('/api/config', createApiRateLimiter(), configRoutes);
+app.use('/api/system', createApiRateLimiter(), systemRoutes);
+app.use('/comfyui', proxyRoutes.createHttpProxy(config.comfyui, logger));
+app.ws('/comfyui/ws', proxyRoutes.createWsProxy(config.comfyui, logger));
 
-// Health check
-app.get('/api/health', (req, res) => {
-    res.json({
-        status: 'ok',
-        version: config.server.version,
-        timestamp: new Date().toISOString()
-    });
-});
-
-// ComfyUI HTTP Proxy
-app.use('/comfyui', createProxyMiddleware({
-    target: COMFYUI_URL,
-    changeOrigin: true,
-    pathRewrite: { '^/comfyui': '' },
-    onError: (err, req, res) => {
-        res.status(502).json({
-            error: 'ComfyUI connection failed',
-            details: err.message
-        });
-    }
-}));
-
-// WebSocket Proxy
-const wsConnections = new Map();
-
-app.ws('/comfyui/ws', (clientWs, req) => {
-    const clientId = Date.now() + Math.random();
-    const urlParams = new URLSearchParams(req.url.split('?')[1]);
-    const queryString = urlParams.toString() ? `?${urlParams.toString()}` : '';
-    const comfyWsUrl = `${COMFYUI_WS_URL}/ws${queryString}`;
-    
-    const comfyWs = new WebSocket(comfyWsUrl);
-    wsConnections.set(clientId, { clientWs, comfyWs });
-    
-    comfyWs.on('message', (data) => {
-        if (clientWs.readyState === WebSocket.OPEN) {
-            clientWs.send(data);
-        }
-    });
-    
-    clientWs.on('message', (data) => {
-        if (comfyWs.readyState === WebSocket.OPEN) {
-            comfyWs.send(data);
-        }
-    });
-    
-    comfyWs.on('close', () => {
-        if (clientWs.readyState === WebSocket.OPEN) {
-            clientWs.close();
-        }
-        wsConnections.delete(clientId);
-    });
-    
-    clientWs.on('close', () => {
-        if (comfyWs.readyState === WebSocket.OPEN) {
-            comfyWs.close();
-        }
-        wsConnections.delete(clientId);
-    });
-});
-
-// Serve static pages
+// Static pages
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Error handler
+// Error handling
+app.use((req, res) => {
+    res.status(404).json({ error: 'Not found', path: req.path });
+});
+
 app.use((err, req, res, next) => {
-    console.error('Server error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    logger.error('Server error', { error: err.message });
+    res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
 // Start server
-const server = app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(config.server.port, config.server.host, () => {
     console.log('\n' + '='.repeat(60));
-    console.log(`🎨 AWDigitalworld AI Hub Pro V${config.server.version}`);
+    logger.info(`🎨 AWDigitalworld AI Hub Pro V${config.server.version} - Ready`);
     console.log('='.repeat(60));
-    console.log(`\n🚀 Server:  http://0.0.0.0:${PORT}`);
-    console.log(`🎨 ComfyUI: ${COMFYUI_URL}`);
-    console.log('\n' + '='.repeat(60) + '\n');
+    logger.info(`🚀 Server:  http://${config.server.host}:${config.server.port}`);
+    logger.info(`🎨 ComfyUI: ${config.comfyui.url}`);
+    logger.info('✅ Security enabled | ✅ Logging active | ✅ WebSocket ready');
+    console.log('='.repeat(60) + '\n');
 });
 
 // Graceful shutdown
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
+const shutdown = require('./utils/shutdown');
+shutdown.registerHandlers(server, logger);
 
-function shutdown() {
-    console.log('\n⏸  Shutting down...');
-    wsConnections.forEach((conn) => {
-        conn.clientWs.close();
-        conn.comfyWs.close();
-    });
-    server.close(() => {
-        console.log('✓ Server closed');
-        process.exit(0);
-    });
-}
+process.on('uncaughtException', (err) => {
+    logger.error('Uncaught exception', { error: err.message });
+    shutdown.gracefulShutdown(1, server, logger);
+});
 
 module.exports = app;
