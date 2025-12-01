@@ -8,7 +8,7 @@
 ![Status](https://img.shields.io/badge/status-production--ready-success.svg)
 
 
-![AWDigitalworld AI Hub Interface](assets/images/screenshot.png)
+![AWDigitalworld AI Hub Interface](assets/images/Screenshot.png)
 
 **Professional AI Image & Video Generation Interface with ComfyUI Integration**
 
